@@ -1,0 +1,106 @@
+version: 2
+
+models:
+  - name: stg_customers
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_name
+        tests: [not_null]
+      - name: email
+        tests: [not_null]
+      - name: city
+        tests: [not_null]
+
+  - name: stg_products
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: product_name
+        tests: [not_null]
+      - name: category
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+
+  - name: stg_orders
+    columns:
+      - name: order_id
+        tests: [unique, not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_customers')
+              field: customer_id
+              config: {severity: warn}
+      - name: order_date
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+
+  - name: stg_order_items
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_products')
+              field: product_id
+              config: {severity: warn}
+      - name: quantity
+        tests: [not_null]
+
+  - name: int_orders
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: customer_id
+        tests: [not_null]
+      - name: order_date
+        tests: [not_null]
+      - name: status
+        tests: [not_null]
+
+  - name: dim_customers
+    columns:
+      - name: customer_id
+        tests: [unique, not_null]
+      - name: customer_name
+        tests: [not_null]
+      - name: email
+        tests: [not_null]
+      - name: city
+        tests: [not_null]
+
+  - name: dim_products
+    columns:
+      - name: product_id
+        tests: [unique, not_null]
+      - name: product_name
+        tests: [not_null]
+      - name: category
+        tests: [not_null]
+      - name: price
+        tests: [not_null]
+
+  - name: fct_orders
+    columns:
+      - name: order_id
+        tests: [not_null]
+      - name: customer_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_customers')
+              field: customer_id
+      - name: product_id
+        tests:
+          - not_null
+          - relationships:
+              to: ref('dim_products')
+              field: product_id
+      - name: total_amount
+        tests: [not_null]

@@ -1,0 +1,15 @@
+version: 2
+
+sources:
+  - name: public
+    database: analytics_db
+    schema: public
+    tables:
+      - name: raw_customers
+      - name: raw_products
+      - name: raw_order_items
+      - name: raw_orders
+        loaded_at_field: "order_date::timestamp" 
+        freshness:
+          warn_after: {count: 12, period: hour}
+          error_after: {count: 24, period: hour}
