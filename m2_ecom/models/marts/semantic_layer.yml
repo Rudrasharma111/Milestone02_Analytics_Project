@@ -45,7 +45,6 @@ semantic_models:
       - name: order_status
         type: categorical
         
-    # Yahan hum base calculations set kar rahe hain
     measures:
       - name: sum_total_amount
         description: "Gross total amount sum"
@@ -67,7 +66,6 @@ semantic_models:
         agg: count_distinct
         expr: customer_id
 
-      # Filtered Measures using standard SQL (Foolproof method)
       - name: sum_gmv_amount
         description: "Total amount excluding cancelled orders"
         agg: sum
@@ -188,3 +186,16 @@ metrics:
       metrics:
         - name: returned_orders
         - name: total_orders
+
+  # --- E. STRETCH GOAL METRIC (Time-Based) ---
+  - name: mom_revenue_growth
+    label: "MoM Revenue Growth"
+    description: "Month-over-Month growth percentage of total revenue."
+    type: derived
+    type_params:
+      expr: "(total_revenue - total_revenue_last_month) / nullif(total_revenue_last_month, 0)"
+      metrics:
+        - name: total_revenue
+        - name: total_revenue
+          alias: total_revenue_last_month
+          offset_window: 1 month
