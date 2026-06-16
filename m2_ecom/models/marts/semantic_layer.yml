@@ -1,0 +1,159 @@
+version: 2
+
+# ==========================================
+# 1. DOCUMENTED GRAIN & ABSTRACTION
+# ==========================================
+models:
+  - name: fct_orders
+    description: "Grain: One row represents one distinct product purchased within a specific customer order. This is the core transactional fact table for all e-commerce metrics."
+    columns:
+      - name: order_id
+        description: "Primary key for the order."
+      - name: customer_id
+        description: "Foreign key linking to dim_customers."
+      - name: product_id
+        description: "Foreign key linking to dim_products."
+      - name: campaign_id
+        description: "Foreign key linking to stg_campaigns."
+      - name: order_date
+        description: "The date the transaction occurred."
+      - name: total_amount
+        description: "Calculated revenue for this specific item (quantity * unit_price - discount)."
+      - name: quantity
+        description: "Number of units purchased in this line item."
+      - name: order_status
+        description: "Current status of the order (e.g., Delivered, Returned, Cancelled)."
+
+# ==========================================
+# 2. CLEARLY DEFINED BUSINESS METRICS (KPIs)
+# ==========================================
+metrics:
+  # --- A. REVENUE & GROWTH METRICS ---
+  - name: total_revenue
+    label: "Total Net Revenue"
+    model: ref('fct_orders')
+    description: "The total net revenue generated across all successful orders."
+    type: sum
+    sql: total_amount
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+    dimensions: [campaign_id, product_id, customer_id, order_status]
+
+  - name: gross_merchandise_value
+    label: "GMV (Gross Merchandise Value)"
+    model: ref('fct_orders')
+    description: "Total value of merchandise sold over a given period, excluding cancelled orders."
+    type: sum
+    sql: total_amount
+    filters:
+      - field: order_status
+        operator: '!='
+        value: "'Cancelled'"
+    timestamp: order_date
+    time_grains: [day, month, year]
+
+  - name: average_order_value
+    label: "Average Order Value (AOV)"
+    model: ref('fct_orders')
+    description: "The average revenue generated per unique customer order. (Derived Metric)"
+    type: derived
+    sql: "{{ metric('total_revenue') }} / NULLIF({{ metric('total_orders') }}, 0)"
+    timestamp: order_date
+    time_grains: [day, month, year]
+
+  # --- B. VOLUME & CART METRICS ---
+  - name: total_orders
+    label: "Total Orders"
+    model: ref('fct_orders')
+    description: "Count of unique orders placed by customers."
+    type: count_distinct
+    sql: order_id
+    timestamp: order_date
+    time_grains: [day, week, month, quarter, year]
+    dimensions: [campaign_id, product_id, customer_id, order_status]
+
+  - name: total_items_sold
+    label: "Total Items Sold"
+    model: ref('fct_orders')
+    description: "Total volume of individual products sold."
+    type: sum
+    sql: quantity
+    timestamp: order_date
+    time_grains: [day, month, year]
+
+  - name: units_per_transaction
+    label: "Units Per Transaction (UPT)"
+    model: ref('fct_orders')
+    description: "Average number of items purchased in a single order. Shows cart size."
+    type: derived
+    sql: "{{ metric('total_items_sold') }} / NULLIF({{ metric('total_orders') }}, 0)"
+    timestamp: order_date
+    time_grains: [day, month, year]
+
+  # --- C. CUSTOMER LIFETIME METRICS ---
+  - name: active_customers
+    label: "Total Active Customers"
+    model: ref('fct_orders')
+    description: "Count of unique customers who placed at least one order in the given period."
+    type: count_distinct
+    sql: customer_id
+    timestamp: order_date
+    time_grains: [day, month, quarter, year]
+
+  - name: average_revenue_per_user
+    label: "Average Revenue Per User (ARPU)"
+    model: ref('fct_orders')
+    description: "Total revenue divided by the number of active customers."
+    type: derived
+    sql: "{{ metric('total_revenue') }} / NULLIF({{ metric('active_customers') }}, 0)"
+    timestamp: order_date
+    time_grains: [month, quarter, year]
+
+  # --- D. OPERATIONAL & FULFILLMENT METRICS ---
+  - name: delivered_orders
+    label: "Delivered Orders"
+    model: ref('fct_orders')
+    description: "Count of successful order deliveries."
+    type: count_distinct
+    sql: order_id
+    filters:
+      - field: order_status
+        operator: '='
+        value: "'Delivered'"
+    timestamp: order_date
+    time_grains: [month, year]
+
+  - name: returned_orders
+    label: "Returned Orders"
+    model: ref('fct_orders')
+    description: "Count of unique orders that were marked as 'Returned' by the customer."
+    type: count_distinct
+    sql: order_id
+    filters:
+      - field: order_status
+        operator: '='
+        value: "'Returned'"
+    timestamp: order_date
+    time_grains: [month, year]
+
+  - name: cancelled_orders
+    label: "Cancelled Orders"
+    model: ref('fct_orders')
+    description: "Count of unique orders that were cancelled before delivery."
+    type: count_distinct
+    sql: order_id
+    filters:
+      - field: order_status
+        operator: '='
+        value: "'Cancelled'"
+    timestamp: order_date
+    time_grains: [month, year]
+
+  - name: return_rate_pct
+    label: "Return Rate (%)"
+    model: ref('fct_orders')
+    description: "Percentage of orders that get returned. Critical for operational health."
+    type: derived
+    sql: "({{ metric('returned_orders') }} * 100.0) / NULLIF({{ metric('total_orders') }}, 0)"
+    timestamp: order_date
+    time_grains: [month, year]
