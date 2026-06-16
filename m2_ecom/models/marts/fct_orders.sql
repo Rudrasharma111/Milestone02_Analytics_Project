@@ -9,6 +9,7 @@ SELECT
     order_id,
     customer_id,
     product_id,
+    campaign_id, -- Campaign ID yahan fetch ho raha hai
     order_date,
     quantity,
     total_amount,

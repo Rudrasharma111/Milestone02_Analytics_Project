@@ -4,6 +4,7 @@ WITH source AS (
 SELECT 
     CAST(order_id AS TEXT) AS order_id,
     CAST(customer_id AS TEXT) AS customer_id,
+    CAST(campaign_id AS TEXT) AS campaign_id, -- Yeh missing tha!
     -- Smart Date Parsing Logic
     CASE 
         WHEN order_date LIKE '%-%' THEN TO_DATE(order_date, 'YYYY-MM-DD')
