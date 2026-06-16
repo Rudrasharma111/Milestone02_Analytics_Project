@@ -1,9 +1,14 @@
 {{ config(materialized='table') }}
-SELECT
+
+SELECT 
     customer_id,
-    {{ clean_string('customer_name') }} AS customer_name,
-    LOWER(TRIM(email)) AS email,
-    {{ clean_string('city') }} AS city,
-    CURRENT_TIMESTAMP AS updated_at
+    customer_name,
+    age_group,
+    gender,
+    city,
+    state,
+    membership_type,
+    customer_segment,
+    annual_income_group,
+    signup_date
 FROM {{ ref('stg_customers') }}
-WHERE customer_id IS NOT NULL

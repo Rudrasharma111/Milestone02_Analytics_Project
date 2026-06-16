@@ -1,15 +1,26 @@
 {{ config(materialized='view') }}
+
+WITH orders AS (
+    SELECT * FROM {{ ref('stg_orders') }}
+),
+order_items AS (
+    SELECT * FROM {{ ref('stg_order_items') }}
+),
+products AS (
+    SELECT * FROM {{ ref('stg_products') }}
+)
+
 SELECT 
     orders.order_id,
     orders.customer_id,
     order_items.product_id,
     orders.order_date,
-    orders.status,
+    orders.order_status,
     order_items.quantity,
-    products.price,
-    (order_items.quantity * products.price) AS total_amount
-FROM {{ ref('stg_orders') }} AS orders
-JOIN {{ ref('stg_order_items') }} AS order_items
-    ON orders.order_id = order_items.order_id
-JOIN {{ ref('stg_products') }} AS products
-    ON order_items.product_id = products.product_id
+    order_items.unit_price,
+    order_items.discount,
+    -- Rounding and Casting to NUMERIC for clean business metrics
+    ROUND(CAST((order_items.quantity * order_items.unit_price) - order_items.discount AS NUMERIC), 2) AS total_amount
+FROM orders
+JOIN order_items ON orders.order_id = order_items.order_id
+JOIN products ON order_items.product_id = products.product_id

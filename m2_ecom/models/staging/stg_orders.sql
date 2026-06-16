@@ -1,8 +1,18 @@
+WITH source AS (
+    SELECT * FROM {{ source('public', 'raw_orders') }}
+)
 SELECT 
-    order_id,
-    customer_id,
-    CAST(order_date AS DATE) AS order_date,
-    {{ clean_string('status') }} AS status
-FROM {{ source('public', 'raw_orders') }}
-WHERE order_id IS NOT NULL 
-  AND customer_id IS NOT NULL
+    CAST(order_id AS TEXT) AS order_id,
+    CAST(customer_id AS TEXT) AS customer_id,
+    -- Smart Date Parsing Logic
+    CASE 
+        WHEN order_date LIKE '%-%' THEN TO_DATE(order_date, 'YYYY-MM-DD')
+        WHEN order_date LIKE '%/%' THEN TO_DATE(order_date, 'DD/MM/YYYY')
+        ELSE NULL 
+    END AS order_date,
+    {{ clean_string('payment_method') }} AS payment_method,
+    {{ clean_string('order_status') }} AS order_status,
+    {{ clean_string('customer_city') }} AS city,
+    {{ clean_string('customer_state') }} AS state
+FROM source
+WHERE order_id IS NOT NULL

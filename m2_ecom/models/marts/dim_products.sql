@@ -1,9 +1,13 @@
 {{ config(materialized='table') }}
-SELECT
+
+SELECT 
     product_id,
-    {{ clean_string('product_name') }} AS product_name,
-    {{ clean_string('category') }} AS category,
-    price,
-    CURRENT_TIMESTAMP AS updated_at
+    category,
+    subcategory,
+    brand,
+    season_tag,
+    mrp,
+    profit_margin_pct,
+    supplier_name,
+    stock_level
 FROM {{ ref('stg_products') }}
-WHERE product_id IS NOT NULL

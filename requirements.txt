@@ -1,6 +1,6 @@
-pandas
-sqlalchemy
-psycopg2-binary
-pydantic
-dbt-core
-dbt-postgres
+pandas==2.2.2
+sqlalchemy==2.0.30
+psycopg2-binary==2.9.9
+pydantic==2.7.1
+dbt-core==1.11.7
+dbt-postgres==1.11.7
