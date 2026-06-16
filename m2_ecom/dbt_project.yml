@@ -19,11 +19,16 @@ models:
     staging:
       +materialized: view
       +tags: ["bronze", "data_engineering"]
+      
     intermediate:
       +materialized: view
       +tags: ["silver", "data_engineering"]
+      
     marts:
       +materialized: table
       +tags: ["gold", "analytics"]
+      +grants:
+        select: ['bi_user']      # Naya Security Rule: Sirf bi_user in tables ko read kar payega
+      
       fct_orders:
         +materialized: incremental
