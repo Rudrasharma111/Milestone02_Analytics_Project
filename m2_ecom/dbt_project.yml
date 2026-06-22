@@ -28,7 +28,7 @@ models:
       +materialized: table
       +tags: ["gold", "analytics"]
       +grants:
-        select: ['bi_user']      # Naya Security Rule: Sirf bi_user in tables ko read kar payega
-      
+        select: ['bi_user']     
+        
       fct_orders:
         +materialized: incremental

@@ -3,8 +3,4 @@ dbt_packages/
 logs/
 .venv/
 venv/
-logs/
-target/
-dbt_packages/
-venv/
 .env

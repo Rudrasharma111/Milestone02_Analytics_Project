@@ -8,7 +8,5 @@ SELECT
     city,
     state,
     membership_type,
-    customer_segment,
-    annual_income_group,
-    signup_date
+    customer_segment
 FROM {{ ref('stg_customers') }}

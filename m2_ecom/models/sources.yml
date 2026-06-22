@@ -1,4 +1,5 @@
 version: 2
+
 sources:
   - name: public
     database: m2_analytics_db

@@ -3,9 +3,6 @@
 WITH orders AS (
     SELECT * FROM {{ ref('stg_orders') }}
 ),
-order_items AS (
-    SELECT * FROM {{ ref('stg_order_items') }}
-),
 products AS (
     SELECT * FROM {{ ref('stg_products') }}
 ),
@@ -14,19 +11,25 @@ campaigns AS (
 )
 
 SELECT 
+    orders.unique_order_key,
+    
     orders.order_id,
     orders.customer_id,
-    order_items.product_id,
-    campaigns.campaign_id, 
-    -- 🔥 Explicitly casting to DATE for Power BI
+    orders.product_id,
+    orders.campaign_id,
     CAST(orders.order_date AS DATE) AS order_date,
     orders.order_status,
-    order_items.quantity,
-    order_items.unit_price,
-    order_items.discount,
-    -- 🔥 Explicitly casting to NUMERIC(10,2) for Power BI Fixed Decimal/Currency
-    CAST((order_items.quantity * order_items.unit_price) - order_items.discount AS NUMERIC(10,2)) AS total_amount
+    orders.payment_method,
+    orders.delivery_days,
+    orders.city,
+    orders.state,
+    orders.quantity,
+    orders.unit_price,
+    orders.discount,
+    orders.shipping_cost,
+    orders.returned_flag,
+    CAST((orders.quantity * orders.unit_price) * (1 - (orders.discount / 100.0)) AS NUMERIC(10,2)) AS total_amount
+
 FROM orders
-JOIN order_items ON orders.order_id = order_items.order_id
-JOIN products ON order_items.product_id = products.product_id
+JOIN products ON orders.product_id = products.product_id
 LEFT JOIN campaigns ON orders.campaign_id = campaigns.campaign_id

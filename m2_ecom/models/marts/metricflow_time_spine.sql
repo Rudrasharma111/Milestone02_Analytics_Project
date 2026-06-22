@@ -1,9 +1,5 @@
 {{ config(materialized='table') }}
 
-/* Yeh query PostgreSQL mein 2020 se lekar 2030 tak ki ek continuous calendar table banayegi.
-MetricFlow iska use time-based calculations (MoM, YoY) ke liye karta hai.
-*/
-
 with days as (
     select
         generate_series(

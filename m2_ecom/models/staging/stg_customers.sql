@@ -9,8 +9,6 @@ SELECT
     {{ clean_string('city') }} AS city,
     {{ clean_string('state') }} AS state,
     {{ clean_string('membership_type') }} AS membership_type,
-    {{ clean_string('customer_segment') }} AS customer_segment,
-    {{ clean_string('annual_income_group') }} AS annual_income_group,
-    CAST(signup_date AS DATE) AS signup_date
+    {{ clean_string('customer_segment') }} AS customer_segment
 FROM source
 WHERE customer_id IS NOT NULL

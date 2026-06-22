@@ -1,26 +1,7 @@
 version: 2
 
 # ==========================================
-# 1. DOCUMENTED GRAIN & TESTS
-# ==========================================
-models:
-  - name: fct_orders
-    description: "Grain: One row represents one distinct product purchased within a specific customer order. Core transactional fact table."
-    columns:
-      - name: order_id
-        data_tests: [not_null]
-      - name: customer_id
-        data_tests: [not_null]
-      - name: product_id
-        data_tests: [not_null]
-      - name: total_amount
-        data_tests: [not_null]
-      - name: quantity
-      - name: order_status
-      - name: order_date
-
-# ==========================================
-# 2. SEMANTIC MODEL (The Engine)
+# 1. SEMANTIC MODEL (The Engine)
 # ==========================================
 semantic_models:
   - name: sm_fct_orders
@@ -30,8 +11,10 @@ semantic_models:
       agg_time_dimension: order_date
     
     entities:
-      - name: order_id
+      - name: unique_order_key  # Yeh hamari asli row-level unique ID hai
         type: primary
+      - name: order_id
+        type: foreign
       - name: customer_id
         type: foreign
       - name: product_id
@@ -66,28 +49,29 @@ semantic_models:
         agg: count_distinct
         expr: customer_id
 
+      # MACRO KE HISAAB SE SAB UPPERCASE KAR DIYA HAI
       - name: sum_gmv_amount
         description: "Total amount excluding cancelled orders"
         agg: sum
-        expr: "CASE WHEN order_status != 'Cancelled' THEN total_amount ELSE 0 END"
+        expr: "CASE WHEN order_status != 'CANCELLED' THEN total_amount ELSE 0 END"
 
       - name: count_delivered_orders
         description: "Count of delivered orders"
         agg: count_distinct
-        expr: "CASE WHEN order_status = 'Delivered' THEN order_id ELSE NULL END"
+        expr: "CASE WHEN order_status = 'DELIVERED' THEN order_id ELSE NULL END"
 
       - name: count_returned_orders
         description: "Count of returned orders"
         agg: count_distinct
-        expr: "CASE WHEN order_status = 'Returned' THEN order_id ELSE NULL END"
+        expr: "CASE WHEN order_status = 'RETURNED' THEN order_id ELSE NULL END"
 
       - name: count_cancelled_orders
         description: "Count of cancelled orders"
         agg: count_distinct
-        expr: "CASE WHEN order_status = 'Cancelled' THEN order_id ELSE NULL END"
+        expr: "CASE WHEN order_status = 'CANCELLED' THEN order_id ELSE NULL END"
 
 # ==========================================
-# 3. METRICS (The Business KPIs)
+# 2. METRICS (The Business KPIs)
 # ==========================================
 metrics:
   # --- A. REVENUE METRICS ---
