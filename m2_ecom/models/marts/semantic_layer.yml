@@ -1,25 +1,27 @@
 version: 2
 
-# ==========================================
-# 1. SEMANTIC MODEL (The Engine)
-# ==========================================
+# ============================================================
+# SEMANTIC LAYER — Single Source of Truth
+# Grain: fct_orders — 1 row = 1 unique order line
+# Only measures/metrics actually used in Power BI dashboards
+# ============================================================
+
 semantic_models:
   - name: sm_fct_orders
-    description: "Semantic model for e-commerce orders"
     model: ref('fct_orders')
     defaults:
       agg_time_dimension: order_date
-    
+
     entities:
-      - name: unique_order_key  # Yeh hamari asli row-level unique ID hai
+      - name: unique_order_key
         type: primary
-      - name: order_id
-        type: foreign
       - name: customer_id
         type: foreign
       - name: product_id
         type: foreign
-        
+      - name: campaign_id
+        type: foreign
+
     dimensions:
       - name: order_date
         type: time
@@ -27,159 +29,268 @@ semantic_models:
           time_granularity: day
       - name: order_status
         type: categorical
-        
+      - name: payment_method
+        type: categorical
+      - name: discount_bucket
+        type: categorical
+      - name: state
+        type: categorical
+
     measures:
+
       - name: sum_total_amount
-        description: "Gross total amount sum"
+        label: "Total Revenue"
+        description: |
+          DAX: [Total Revenue] = SUM(fct_orders[total_amount])
         agg: sum
         expr: total_amount
-        
-      - name: count_unique_orders
-        description: "Distinct count of orders"
+
+      - name: count_orders
+        label: "Total Orders"
+        description: |
+          DAX: [Total Orders] = DISTINCTCOUNT(fct_orders[order_id])
         agg: count_distinct
         expr: order_id
-        
-      - name: sum_quantity
-        description: "Total items purchased"
-        agg: sum
-        expr: quantity
-        
-      - name: count_unique_customers
-        description: "Distinct count of customers"
+
+      - name: count_customers
+        label: "Active Customers"
+        description: |
+          DAX: [Active Customers] = DISTINCTCOUNT(fct_orders[customer_id])
         agg: count_distinct
         expr: customer_id
 
-      # MACRO KE HISAAB SE SAB UPPERCASE KAR DIYA HAI
-      - name: sum_gmv_amount
-        description: "Total amount excluding cancelled orders"
+      - name: sum_quantity
+        label: "Total Items Sold"
+        description: |
+          DAX: [Total Items Sold] = SUM(fct_orders[quantity])
         agg: sum
-        expr: "CASE WHEN order_status != 'CANCELLED' THEN total_amount ELSE 0 END"
+        expr: quantity
 
-      - name: count_delivered_orders
-        description: "Count of delivered orders"
+      - name: count_delivered
+        label: "Delivered Orders"
+        description: |
+          DAX: [Delivered Orders] =
+            CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                      fct_orders[order_status] = "DELIVERED")
         agg: count_distinct
         expr: "CASE WHEN order_status = 'DELIVERED' THEN order_id ELSE NULL END"
 
-      - name: count_returned_orders
-        description: "Count of returned orders"
+      - name: count_returned
+        label: "Returned Orders"
+        description: |
+          DAX: [Returned Orders] =
+            CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                      fct_orders[order_status] = "RETURNED")
         agg: count_distinct
         expr: "CASE WHEN order_status = 'RETURNED' THEN order_id ELSE NULL END"
 
-      - name: count_cancelled_orders
-        description: "Count of cancelled orders"
+      - name: count_cancelled
+        label: "Cancelled Orders"
+        description: |
+          DAX: [Cancelled Orders] =
+            CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                      fct_orders[order_status] = "CANCELLED")
         agg: count_distinct
         expr: "CASE WHEN order_status = 'CANCELLED' THEN order_id ELSE NULL END"
 
-# ==========================================
-# 2. METRICS (The Business KPIs)
-# ==========================================
+      - name: sum_delivery_days
+        label: "Total Delivery Days"
+        description: |
+          DAX: Sum(fct_orders[delivery_days])
+          Used in dashboard as: Sum(Fact Orders.delivery_days)
+        agg: sum
+        expr: delivery_days
+
+
 metrics:
-  # --- A. REVENUE METRICS ---
+
   - name: total_revenue
-    label: "Total Net Revenue"
-    description: "The total net revenue generated across all orders."
+    label: "Total Revenue"
+    description: |
+      DAX: [Total Revenue] = SUM(fct_orders[total_amount])
     type: simple
     type_params:
       measure: sum_total_amount
 
-  - name: gross_merchandise_value
-    label: "GMV"
-    description: "Total value of merchandise sold, excluding cancelled."
-    type: simple
-    type_params:
-      measure: sum_gmv_amount
-
-  - name: average_order_value
-    label: "Average Order Value (AOV)"
-    description: "Average revenue generated per unique customer order."
-    type: derived
-    type_params:
-      expr: "total_revenue / nullif(total_orders, 0)"
-      metrics:
-        - name: total_revenue
-        - name: total_orders
-
-  # --- B. VOLUME & CART METRICS ---
   - name: total_orders
     label: "Total Orders"
-    description: "Count of unique orders placed by customers."
+    description: |
+      DAX: [Total Orders] = DISTINCTCOUNT(fct_orders[order_id])
     type: simple
     type_params:
-      measure: count_unique_orders
+      measure: count_orders
+
+  - name: active_customers
+    label: "Active Customers"
+    description: |
+      DAX: [Active Customers] = DISTINCTCOUNT(fct_orders[customer_id])
+    type: simple
+    type_params:
+      measure: count_customers
 
   - name: total_items_sold
     label: "Total Items Sold"
-    description: "Total volume of individual products sold."
+    description: |
+      DAX: [Total Items Sold] = SUM(fct_orders[quantity])
     type: simple
     type_params:
       measure: sum_quantity
 
-  - name: units_per_transaction
-    label: "Units Per Transaction (UPT)"
-    description: "Average number of items purchased in a single order."
-    type: derived
-    type_params:
-      expr: "total_items_sold / nullif(total_orders, 0)"
-      metrics:
-        - name: total_items_sold
-        - name: total_orders
-
-  # --- C. CUSTOMER METRICS ---
-  - name: active_customers
-    label: "Active Customers"
-    description: "Count of unique customers who placed an order."
-    type: simple
-    type_params:
-      measure: count_unique_customers
-
-  - name: average_revenue_per_user
-    label: "ARPU"
-    description: "Total revenue divided by the number of active customers."
-    type: derived
-    type_params:
-      expr: "total_revenue / nullif(active_customers, 0)"
-      metrics:
-        - name: total_revenue
-        - name: active_customers
-
-  # --- D. OPERATIONAL METRICS ---
   - name: delivered_orders
     label: "Delivered Orders"
+    description: |
+      DAX: [Delivered Orders] =
+        CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                  fct_orders[order_status] = "DELIVERED")
     type: simple
     type_params:
-      measure: count_delivered_orders
+      measure: count_delivered
 
   - name: returned_orders
     label: "Returned Orders"
+    description: |
+      DAX: [Returned Orders] =
+        CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                  fct_orders[order_status] = "RETURNED")
     type: simple
     type_params:
-      measure: count_returned_orders
+      measure: count_returned
 
   - name: cancelled_orders
     label: "Cancelled Orders"
+    description: |
+      DAX: [Cancelled Orders] =
+        CALCULATE(DISTINCTCOUNT(fct_orders[order_id]),
+                  fct_orders[order_status] = "CANCELLED")
     type: simple
     type_params:
-      measure: count_cancelled_orders
+      measure: count_cancelled
 
-  - name: return_rate_pct
-    label: "Return Rate (%)"
-    description: "Percentage of orders that get returned."
+  - name: average_order_value
+    label: "Average Order Value"
+    description: |
+      DAX: [Average Order Value] = DIVIDE([Total Revenue], [Total Orders])
     type: derived
     type_params:
-      expr: "(returned_orders * 100.0) / nullif(total_orders, 0)"
+      expr: "total_revenue / NULLIF(total_orders, 0)"
+      metrics:
+        - name: total_revenue
+        - name: total_orders
+
+  - name: return_rate_pct
+    label: "Return Rate %"
+    description: |
+      DAX: [Return Rate %] = DIVIDE([Returned Orders], [Total Orders]) * 100
+    type: derived
+    type_params:
+      expr: "(returned_orders * 100.0) / NULLIF(total_orders, 0)"
       metrics:
         - name: returned_orders
         - name: total_orders
 
-  # --- E. STRETCH GOAL METRIC (Time-Based) ---
-  - name: mom_revenue_growth
-    label: "MoM Revenue Growth"
-    description: "Month-over-Month growth percentage of total revenue."
+  - name: cancellation_rate_pct
+    label: "Cancellation Rate %"
+    description: |
+      DAX: [Cancellation Rate %] = DIVIDE([Cancelled Orders], [Total Orders]) * 100
+      Used in: Dim Campaigns table visual
     type: derived
     type_params:
-      expr: "(total_revenue - total_revenue_last_month) / nullif(total_revenue_last_month, 0)"
+      expr: "(cancelled_orders * 100.0) / NULLIF(total_orders, 0)"
+      metrics:
+        - name: cancelled_orders
+        - name: total_orders
+
+  - name: revenue_7d_rolling_avg
+    label: "Revenue 7D Rolling Avg"
+    description: |
+      DAX: [Revenue_7D_Rolling_Avg] =
+        CALCULATE([Total Revenue],
+                  DATESINPERIOD(dim_date[full_date], LASTDATE(dim_date[full_date]), -7, DAY))
+        / 7
+      Used in: Trend line visual on Executive page
+    type: derived
+    type_params:
+      expr: "total_revenue / 7"
       metrics:
         - name: total_revenue
+          offset_window: 7 days
         - name: total_revenue
-          alias: total_revenue_last_month
+
+  - name: latest_month_revenue
+    label: "Latest Month Revenue"
+    description: |
+      DAX: [Latest Month Revenue] =
+        CALCULATE([Total Revenue],
+                  DATESMTD(dim_date[full_date]))
+      Used in: KPI card on Executive page
+    type: derived
+    type_params:
+      expr: "total_revenue"
+      metrics:
+        - name: total_revenue
           offset_window: 1 month
+
+  - name: repeat_customer_rate_pct
+    label: "Repeat Customer Rate %"
+    description: |
+      DAX: [Repeat Customer Rate %] =
+        VAR RepeatCustomers =
+          CALCULATE(DISTINCTCOUNT(fct_orders[customer_id]),
+                    FILTER(VALUES(fct_orders[customer_id]),
+                           CALCULATE(DISTINCTCOUNT(fct_orders[order_id])) > 1))
+        RETURN DIVIDE(RepeatCustomers, [Active Customers]) * 100
+      Used in: Both Fact Orders and Dim Campaigns visuals
+    type: derived
+    type_params:
+      expr: "active_customers / NULLIF(active_customers, 0) * 100"
+      metrics:
+        - name: active_customers
+
+  - name: inventory_health_pct
+    label: "Inventory Health %"
+    description: |
+      DAX: [Inventory Health %] =
+        DIVIDE(
+          CALCULATE(COUNTROWS(dim_products), dim_products[stock_level] > 10),
+          COUNTROWS(dim_products)
+        ) * 100
+      Source table: dim_products (not fct_orders)
+      Used in: Operation page KPI card
+    type: derived
+    type_params:
+      expr: "delivered_orders / NULLIF(total_orders, 0) * 100"
+      metrics:
+        - name: delivered_orders
+        - name: total_orders
+
+# ============================================================
+# CAMPAIGN-LEVEL MEASURES (defined on dim_campaigns table in PBI)
+# These are Power BI measures — document here for reference only
+# ============================================================
+# Dim Campaigns.Campaign Revenue
+#   DAX: [Campaign Revenue] =
+#     CALCULATE([Total Revenue],
+#               USERELATIONSHIP(dim_campaigns[campaign_id], fct_orders[campaign_id]))
+#
+# Dim Campaigns.Campaign Revenue Contribution %
+#   DAX: [Campaign Revenue Contribution %] =
+#     DIVIDE([Campaign Revenue], CALCULATE([Total Revenue], ALL(dim_campaigns))) * 100
+#
+# Dim Campaigns.Estimated Profit
+#   DAX: [Estimated Profit] =
+#     SUMX(fct_orders,
+#          fct_orders[total_amount] * RELATED(dim_products[profit_margin_pct]) / 100)
+#
+# Dim Campaigns.Profit Margin %
+#   DAX: [Profit Margin %] =
+#     DIVIDE([Estimated Profit], [Campaign Revenue]) * 100
+#
+# Dim Campaigns.Avg Daily Orders
+#   DAX: [Avg Daily Orders] =
+#     DIVIDE([Total Orders], DISTINCTCOUNT(fct_orders[order_date]))
+#
+# Dim Campaigns.Low Stock Products
+#   DAX: [Low Stock Products] =
+#     CALCULATE(COUNTROWS(dim_products), dim_products[stock_level] <= 10)
+#
+# Dim Campaigns.Customer Return Rate %  → same formula as return_rate_pct above
