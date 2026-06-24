@@ -1,29 +1,29 @@
-# 📊 E-Commerce Analytics — M2 Reporting & Dashboard Layer
+# E-Commerce Analytics — M2 Reporting & Dashboard Layer
 
-## 🚀 Project Overview
+## Project Overview
 
-This milestone builds an **analytics-ready reporting layer** on top of the transformed Gold layer from M1, delivering:
+This milestone builds an analytics-ready reporting layer on top of the transformed Gold layer from M1, delivering:
 
-* Analytics-ready Gold layer tables (Star Schema) derived from dbt models
-* Clearly defined metrics and dimensions with documented grain
-* Semantic layer implementation via MetricFlow YAML
-* Two Power BI dashboards targeting different business personas
-* SQL queries backing each visualization
-* Time-based comparisons — MoM, 7D Rolling Avg, Revenue Trend
-* Stretch Goals — anomaly detection, forecast, composite metrics
-
----
-
-# 🎯 Business Objective
-
-Transform Gold layer dimensional models into **insight-ready dashboards** that answer real business questions for two distinct personas:
-
-* **Leadership / Business** → Revenue, growth, customer trends
-* **Operations / Analyst** → Fulfillment, campaigns, inventory, returns
+- Analytics-ready Gold layer tables (Star Schema) derived from dbt models
+- Clearly defined metrics and dimensions with documented grain
+- Semantic layer implementation via MetricFlow YAML
+- Two Power BI dashboards targeting different business personas
+- SQL queries backing each visualization
+- Time-based comparisons — MoM, 7-Day Rolling Average, Revenue Trend
+- Stretch Goals — anomaly detection, forecast, composite metrics
 
 ---
 
-# 🔄 Data Flow (M1 → M2)
+## Business Objective
+
+Transform Gold layer dimensional models into insight-ready dashboards that answer real business questions for two distinct personas:
+
+- **Leadership / Business** — Revenue, growth, customer trends
+- **Operations / Analyst** — Fulfillment, campaigns, inventory, returns
+
+---
+
+## Data Flow (M1 to M2)
 
 ```
 PostgreSQL Raw Tables (Bronze)
@@ -41,7 +41,7 @@ Power BI Dashboard — BERT_Dashboard.pbix
 
 ---
 
-# 🏗️ Gold Layer — Star Schema
+## Gold Layer — Star Schema
 
 ```
               dim_customers
@@ -53,11 +53,11 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 ---
 
-# 📐 fct_orders — Fact Table
+## fct_orders — Fact Table
 
-**Grain:** 1 row = 1 unique order line
-**Unique Key:** MD5(order_id + customer_id + product_id)
-**Materialization:** Incremental — only new rows on each dbt run
+**Grain:** 1 row = 1 unique order line  
+**Unique Key:** MD5(order_id + customer_id + product_id)  
+**Materialization:** Incremental — only new rows added on each dbt run
 
 | Column | Type | Description |
 |--------|------|-------------|
@@ -75,23 +75,23 @@ dim_campaigns ─── fct_orders ─── dim_products
 | shipping_cost | FLOAT | Shipping cost |
 | total_amount | NUMERIC(10,2) | qty × unit_price × (1 − discount/100) |
 | delivery_days | INT | Days taken to deliver |
-| returned_flag | INT | 1 = returned, 0 = not |
+| returned_flag | INT | 1 = returned, 0 = not returned |
 | city | TEXT | Customer city at order time |
 | state | TEXT | Customer state at order time |
-| is_delivered_order | INT | 1 if Delivered else 0 |
-| is_returned_order | INT | 1 if Returned else 0 |
-| net_revenue_amount | NUMERIC | total_amount if Delivered else 0 |
+| is_delivered_order | INT | 1 if Delivered, else 0 |
+| is_returned_order | INT | 1 if Returned, else 0 |
+| net_revenue_amount | NUMERIC | total_amount if Delivered, else 0 |
 | discount_bucket | TEXT | 0-10% / 11-20% / 21-30% / 30%+ |
 
 ---
 
-# 🌟 Dimension Tables
+## Dimension Tables
 
 ### dim_customers
 
 | Column | Type | Description |
 |--------|------|-------------|
-| customer_id | TEXT | PK |
+| customer_id | TEXT | Primary key |
 | customer_name | TEXT | Full name |
 | age_group | TEXT | 18-25 / 26-35 / 36-50 / 50+ |
 | gender | TEXT | Male / Female / Other |
@@ -104,12 +104,12 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 | Column | Type | Description |
 |--------|------|-------------|
-| product_id | TEXT | PK |
+| product_id | TEXT | Primary key |
 | category | TEXT | Product category |
 | subcategory | TEXT | Product subcategory |
 | brand | TEXT | Brand name |
-| season_tag | TEXT | Summer / Winter etc. |
-| mrp | NUMERIC | Max retail price |
+| season_tag | TEXT | Summer / Winter / etc. |
+| mrp | NUMERIC | Maximum retail price |
 | profit_margin_pct | NUMERIC | Profit margin % |
 | stock_level | INT | Current stock count |
 
@@ -117,7 +117,7 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 | Column | Type | Description |
 |--------|------|-------------|
-| campaign_id | TEXT | PK |
+| campaign_id | TEXT | Primary key |
 | campaign_name | TEXT | Republic Day Sale / Holi & Summer Fest / Monsoon Saver Sale / Back to School / Big Billion Days / Diwali Dhamaka / Wedding Bonanza / Winter Essentials / Christmas Carnival |
 | expected_performance | TEXT | High / Medium / Low |
 
@@ -125,66 +125,66 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 | Column | Type | Description |
 |--------|------|-------------|
-| full_date | DATE | PK |
+| full_date | DATE | Primary key |
 | year | INT | Year |
 | month | INT | Month number |
 | quarter | INT | 1–4 |
-| month_name | TEXT | January etc. |
-| day_name | TEXT | Monday etc. |
+| month_name | TEXT | January, February, etc. |
+| day_name | TEXT | Monday, Tuesday, etc. |
 
 ---
 
-# 📊 Target Personas & Dashboard Answers
+## Target Personas & Dashboard Answers
 
-## 👔 Persona 1 — Business / Leadership
-**Page:** Executive | **Who:** CEO, Business Head, Investors
-
-| # | Question | Metric | Answer |
-|---|----------|--------|--------|
-| 1 | Total revenue is kitna? | Total Revenue | **₹29.16 Cr** (Jan 2025 – May 2026) |
-| 2 | Is mahine kitna revenue aaya? | Latest Month Revenue | **₹2.02 Cr** (May 2026) |
-| 3 | Kitne unique customers hain? | Active Customers | **4,000 unique customers** |
-| 4 | Average order value kya hai? | AOV | **₹13,081** per delivered order |
-| 5 | Return rate kaisi hai? | Return Rate % | **7.9%** — healthy (5–10% normal) |
-| 6 | Kaunsa state best hai? | Revenue by State | **Delhi #1**, Karnataka #2, Maharashtra #3 |
-| 7 | Revenue trend kaisi hai? | 7D Rolling Avg | Peak Oct 2025 ₹3.3 Cr, current ~₹2 Cr/month |
-| 8 | Customers wapas aa rahe hain? | Repeat Customer Rate % | **35%** customers ne 2+ orders kiye |
-
-## 🔧 Persona 2 — Analyst / Operations
-**Pages:** Operation + Second Operation | **Who:** Ops Manager, Data Analyst, Campaign Manager
+### Persona 1 — Business / Leadership
+**Page:** Executive | **Audience:** CEO, Business Head, Investors
 
 | # | Question | Metric | Answer |
 |---|----------|--------|--------|
-| 1 | Kaun si campaign best rahi? | Campaign Revenue Contribution % | **Diwali Dhamaka** — 1,758 orders Oct mein akele |
-| 2 | Profit kitna hua campaign se? | Gross Profit, Profit Margin % | Electronics highest margin driver |
-| 3 | Kitne orders cancel hue? | Cancelled Orders, Cancellation Rate % | **728 total**, ~2.9% rate |
-| 4 | Inventory theek hai? | Inventory Health %, Low Stock | stock_level thresholds se monitor |
-| 5 | Kaunsi category sabse zyada biki? | Total Items Sold by Category | **Electronics #1** — har mahine 60%+ revenue |
-| 6 | Discount se orders bade? | Revenue by Discount Bucket | 11–20% bucket mein highest volume |
-| 7 | Average delivery time? | Avg delivery_days | Map visual mein state-wise |
-| 8 | Fulfilled vs returned? | Delivered vs Returned | **22,295 Delivered** vs **1,977 Returned** |
+| 1 | What is total revenue? | Total Revenue | **₹29.16 Cr** (Jan 2025 – May 2026) |
+| 2 | What did we earn this month? | Latest Month Revenue | **₹2.02 Cr** (May 2026) |
+| 3 | How many customers do we have? | Active Customers | **4,000 unique customers** |
+| 4 | What is average order value? | AOV | **₹13,081** per delivered order |
+| 5 | How is return rate? | Return Rate % | **7.9%** — healthy (5–10% is normal) |
+| 6 | Which state performs best? | Revenue by State | **Delhi #1**, Karnataka #2, Maharashtra #3 |
+| 7 | How is the revenue trend? | 7D Rolling Average | Peak Oct 2025 ₹3.3 Cr, current ~₹2 Cr/month |
+| 8 | Are customers coming back? | Repeat Customer Rate % | **35%** customers placed 2+ orders |
+
+### Persona 2 — Operations / Analyst
+**Pages:** Operation + Second Operation | **Audience:** Ops Manager, Data Analyst, Campaign Manager
+
+| # | Question | Metric | Answer |
+|---|----------|--------|--------|
+| 1 | Which campaign performed best? | Campaign Revenue Contribution % | **Diwali Dhamaka** — 1,758 orders in October alone |
+| 2 | How much profit came from campaigns? | Gross Profit, Profit Margin % | Electronics is the highest margin driver |
+| 3 | How many orders were cancelled? | Cancelled Orders, Cancellation Rate % | **728 total**, ~2.9% rate |
+| 4 | Is inventory healthy? | Inventory Health %, Low Stock | Monitored via stock_level thresholds |
+| 5 | Which category sold the most? | Total Items Sold by Category | **Electronics #1** — 60%+ revenue every month |
+| 6 | Did discounts drive more orders? | Revenue by Discount Bucket | 11–20% bucket has the highest volume |
+| 7 | What is average delivery time? | Avg delivery_days | Shown state-wise on map visual |
+| 8 | Delivered vs returned? | Delivered vs Returned | **22,295 Delivered** vs **1,977 Returned** |
 
 ---
 
-# 📈 Dashboard Walkthrough
+## Dashboard Walkthrough
 
-## Page 1 — Executive Dashboard
+### Page 1 — Executive Dashboard
 
 **Top KPI Cards:** Total Revenue · Latest Month Revenue · Total Orders · Active Customers · AOV · Return Rate %
 
-**Line Chart — Revenue Trend:** Monthly revenue with 7D rolling average overlay. Shows seasonal spikes (Oct peak) and monsoon dips clearly.
+**Line Chart — Revenue Trend:** Monthly revenue with 7-day rolling average overlay. Shows seasonal spikes (October peak) and monsoon dips clearly.
 
-**Filled Map — Revenue by State:** Darker = higher revenue. Delhi, Karnataka, Maharashtra dominate.
+**Filled Map — Revenue by State:** Darker color = higher revenue. Delhi, Karnataka, Maharashtra dominate.
 
-**Bar Chart — Top States:** Ranking of states by revenue for precise comparison.
+**Bar Chart — Top States:** State-by-state revenue ranking for precise comparison.
 
 **Donut — Order Status:** Delivered 89.2% / Returned 7.9% / Cancelled 2.9% — fulfillment health at a glance.
 
-**Stacked Area — Repeat Customer Rate %:** Monthly loyalty trend. Overall 35% customers are repeat buyers.
+**Stacked Area — Repeat Customer Rate %:** Monthly loyalty trend. Overall 35% of customers are repeat buyers.
 
 ---
 
-## Page 2 — Operation Dashboard
+### Page 2 — Operation Dashboard
 
 **KPI Cards:** Delivered · Returned · Cancelled · Avg Daily Orders · Cancellation Rate % · Customer Return Rate % · Inventory Health % · Low Stock Products
 
@@ -196,31 +196,31 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 ---
 
-## Page 3 — Second Operation Dashboard
+### Page 3 — Second Operation Dashboard
 
-**Column — Revenue by Category:** Electronics 60%+, Cooling Appliances 2nd, Home Appliances 3rd.
+**Column Chart — Revenue by Category:** Electronics 60%+, Cooling Appliances 2nd, Home Appliances 3rd.
 
-**Clustered Column — Returns by Category:** Which categories have high return rates.
+**Clustered Column — Returns by Category:** Which categories have the highest return rates.
 
-**Bar — Revenue by Subcategory:** Top 15 subcategories ranked.
+**Bar — Revenue by Subcategory:** Top 15 subcategories ranked by revenue.
 
-**Clustered Column — Revenue by Discount Bucket:** Does deeper discount = more revenue? 11–20% sweet spot.
+**Clustered Column — Revenue by Discount Bucket:** Does a deeper discount equal more revenue? 11–20% is the sweet spot.
 
 **Pie — Payment Method:** UPI vs COD vs Cards breakdown.
 
-**Column — Revenue by Gender & Age Group:** Targeting insights.
+**Column — Revenue by Gender & Age Group:** Targeting and demographic insights.
 
 ---
 
-# 📊 Key Insights — Real Data Se Nikale Facts
+## Key Insights
 
-## 📋 Overall Dataset Summary (Jan 2025 – May 2026)
+### Overall Dataset Summary (Jan 2025 – May 2026)
 
 | Metric | Value |
 |--------|-------|
 | Total Order Rows | 25,000 |
 | Unique Orders | 24,500 |
-| Unique Customers | **4,000** |
+| Total Customers | **4,000** |
 | Avg Orders per Customer | **6.25** |
 | Repeat Customers (2+ orders) | **1,400 (35%)** |
 | Single-order Customers | 2,600 (65%) |
@@ -234,7 +234,7 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 ---
 
-## 🔢 Month-by-Month Performance
+### Month-by-Month Performance
 
 | Month | Revenue | Orders | Customers | Delivered | Returned | Return % |
 |-------|---------|--------|-----------|-----------|----------|----------|
@@ -258,69 +258,68 @@ dim_campaigns ─── fct_orders ─── dim_products
 
 ---
 
-## 🚀 Spike: October 2025 — Diwali Effect
+### Spike: October 2025 — The Diwali Effect
 
 **Revenue: ₹3.30 Cr | Orders: 3,183 | Customers: 1,529 | +50.4% vs September**
 
-**Kya hua:** October 2025 dataset ka sabse bada spike — September ke 2,116 se seedha 3,183 orders — **50% jump ek mahine mein.**
+October 2025 is the biggest month in the dataset. September had 2,116 orders — October jumped to 3,183, a 50% increase in a single month.
 
-**Data se proof:**
-- **Diwali Dhamaka campaign** akele **1,758 orders** laya
-- **Big Billion Days campaign** ne **1,425 orders** add kiye
-- Dono campaigns ek saath October mein chale — double impact
-- **Electronics category** ne ₹2.04 Cr diya — 62% share akele
-- **Delhi ₹53.6L, Karnataka ₹49.9L, Maharashtra ₹47.2L** — teeno mein ek saath surge
-- 1,529 unique customers — sabse zyada kisi bhi mahine mein
+**Evidence from the data:**
+- Diwali Dhamaka campaign alone generated **1,758 orders**
+- Big Billion Days campaign added another **1,425 orders**
+- Both campaigns ran simultaneously in October — creating a combined impact
+- Electronics category contributed ₹2.04 Cr — 62% of that month's revenue on its own
+- Delhi ₹53.6L, Karnataka ₹49.9L, Maharashtra ₹47.2L — all three states surged at the same time
+- 1,529 unique customers — the highest of any month in the dataset
 
-> **Business Action:** Diwali + sale campaign combination hamare sabse bade revenue driver hai. Next year October ke liye advance inventory planning aur campaign budget increase zaroori.
-
----
-
-## 📉 Dip: June–August 2025 — Monsoon Slump
-
-**Jun: ₹1.34 Cr → Jul: ₹1.19 Cr → Aug: ₹1.08 Cr | 3 consecutive months decline**
-
-**Kya hua:** May ke ₹2.21 Cr peak se August mein ₹1.08 Cr — **51% girावट** teen mahine mein. Dataset ka sabse lamba decline period.
-
-**Data se proof:**
-- **June:** "Back to School" campaign sirf 606 orders — 592 orders **bina campaign** ke aaye (organic only)
-- **July:** "Monsoon Saver Sale" campaign sirf **263 orders** generate ki — very weak
-- **August:** Monsoon campaign phir bhi sirf **240 orders** — almost failed
-- August mein sirf **646 unique customers** — sabse kam kisi bhi mahine mein
-- Cooling Appliances July mein ₹3.3 Cr — baaki sab categories flat
-- **Koi bhi major festive event nahi** June–August mein — pure organic demand
-
-> **Business Action:** Monsoon months mein campaign spend review karo — Monsoon Saver Sale ROI poor hai. Category-specific push (home goods, monsoon essentials) try karo. Is period mein heavy inventory investment avoid karo.
+> **Business Action:** The Diwali + sale campaign combination is our single biggest revenue driver. For next year, advance inventory planning and an increased campaign budget for October are essential.
 
 ---
 
-## 📉 Dip: February — Har Saal Ka Pattern
+### Dip: June–August 2025 — The Monsoon Slump
+
+**Jun: ₹1.34 Cr → Jul: ₹1.19 Cr → Aug: ₹1.08 Cr — 3 consecutive months of decline**
+
+From May's peak of ₹2.21 Cr to August's low of ₹1.08 Cr — a **51% drop** across three months. This is the longest and steepest decline in the dataset.
+
+**Evidence from the data:**
+- June: "Back to School" campaign generated only 606 orders — 592 orders came in with no campaign (49% organic)
+- July: "Monsoon Saver Sale" produced only **263 orders** — very weak performance
+- August: The same Monsoon campaign generated only **240 orders** — effectively failed
+- August had only **646 unique customers** — the lowest of any month in the dataset
+- No major festive event in this window — demand was entirely organic
+
+> **Business Action:** Review campaign spending for monsoon months. The Monsoon Saver Sale ROI is poor and should be reconsidered entirely. Try a category-specific push — home goods, monsoon apparel, appliances. Avoid heavy inventory build-up during this window.
+
+---
+
+### Dip: February — A Pattern That Repeats Every Year
 
 **Feb 2025: ₹1.01 Cr (792 customers) | Feb 2026: ₹1.04 Cr (804 customers)**
 
-**Kya hua:** January ke baad February consistent dip — **dono saalo mein same pattern.** Dataset ka lowest revenue month February 2025 tha.
+After January, February shows a consistent dip — the same pattern in both years. February 2025 was the lowest revenue month in the entire dataset.
 
-**Data se proof:**
-- **Feb 2025:** "Wedding Bonanza" campaign — sirf **481 orders**, 630 orders bina campaign ke
-- **Feb 2026:** Same campaign — sirf **488 orders**, 622 orders bina campaign ke
-- Campaign dono baar lagbhag same result — **consistent underperformer**
-- February sirf **28 days** ka mahina — structurally kam orders
-- January mein Republic Day Sale ke baad demand saturation — customers already khareed chuke
-- Winter Appliances dono February mein second biggest category — season khatam ho raha hota hai
+**Evidence from the data:**
+- Feb 2025: "Wedding Bonanza" campaign — only **481 orders**, with 630 orders coming in organically
+- Feb 2026: Same campaign — only **488 orders**, with 622 coming in organically
+- The campaign produced nearly identical, underwhelming results both times — a **consistent underperformer**
+- February is a **28-day month** — structurally fewer orders regardless of campaign activity
+- January's Republic Day Sale creates demand saturation — customers have already purchased
+- Winter Appliances is the second-biggest category in both Februaries — the winter season is winding down
 
-> **Business Action:** February structural weakness hai — dono saalo mein same. Wedding Bonanza ko rethink karo. Valentine's Day themed electronics/gifting campaign try karo. 28-day month factor planning mein include karo.
+> **Business Action:** February is structurally weak and will repeat every year. Wedding Bonanza needs to be rethought. Consider a Valentine's Day themed electronics or gifting campaign instead. Build the 28-day factor into all February forecasts.
 
 ---
 
-## 📈 September 2025 — Pre-Diwali Buildup
+### September 2025 — Pre-Festive Buildup
 
 **Revenue: ₹2.70 Cr | Orders: 2,116 | +148% vs August**
 
-August ke lowest point se September mein massive recovery. Customers Diwali ke liye advance shopping shuru kar dete hain — pre-festive demand buildup clearly visible.
+A massive recovery from August's low point. Customers begin advance shopping ahead of Diwali — the pre-festive demand buildup is clearly visible in the data.
 
 ---
 
-## 📊 Revenue Pattern Visual
+### Revenue Pattern (Jan 2025 – May 2026)
 
 ```
 Jan 25  ████████████████          ₹1.60 Cr  Republic Day Sale
@@ -331,12 +330,12 @@ May 25  █████████████████████     ₹2
 Jun 25  █████████████             ₹1.34 Cr  ◀ DIP START (Monsoon)
 Jul 25  ████████████              ₹1.19 Cr  ◀ Monsoon Low
 Aug 25  ██████████                ₹1.08 Cr  ◀ LOWEST POINT
-Sep 25  ██████████████████████████ ₹2.70 Cr  Pre-Diwali Surge
+Sep 25  ██████████████████████████ ₹2.70 Cr  Pre-Festive Surge
 Oct 25  █████████████████████████████████  ₹3.30 Cr  ◀ PEAK (Diwali + BBD)
 Nov 25  ███████████████           ₹1.55 Cr  Post-Diwali
-Dec 25  ███████████████           ₹1.55 Cr  Christmas/Year-end
+Dec 25  ███████████████           ₹1.55 Cr  Christmas / Year-end
 Jan 26  ███████████████           ₹1.50 Cr  Republic Day
-Feb 26  ██████████                ₹1.04 Cr  ◀ DIP (same Feb pattern)
+Feb 26  ██████████                ₹1.04 Cr  ◀ DIP (same February pattern)
 Mar 26  ███████████████           ₹1.53 Cr  Recovery
 Apr 26  ████████████████████      ₹2.01 Cr  Growth
 May 26  ████████████████████      ₹2.02 Cr  Stable
@@ -344,11 +343,11 @@ May 26  ████████████████████      ₹2.0
 
 ---
 
-# 📏 Dimensions Available for Slicing
+## Dimensions Available for Filtering
 
 | Dimension | Source | Values |
 |-----------|--------|--------|
-| order_date | fct_orders | Daily / monthly / yearly |
+| order_date | fct_orders | Daily / Monthly / Yearly |
 | order_status | fct_orders | Delivered / Returned / Cancelled / Pending |
 | payment_method | fct_orders | UPI / COD / Credit Card / Debit Card / Net Banking |
 | discount_bucket | fct_orders | 0-10% / 11-20% / 21-30% / 30%+ |
@@ -356,21 +355,21 @@ May 26  ████████████████████      ₹2.0
 | age_group | dim_customers | 18-25 / 26-35 / 36-50 / 50+ |
 | gender | dim_customers | Male / Female / Other |
 | membership_type | dim_customers | Gold / Silver / Bronze |
-| category | dim_products | Electronics / Cooling Appliances / Home Appliances / Fashion / Winter Appliances etc. |
+| category | dim_products | Electronics / Cooling Appliances / Home Appliances / Fashion / Winter Appliances / etc. |
 | campaign_name | dim_campaigns | 9 campaigns |
 | full_date | dim_date | Month / Quarter / Year hierarchy |
 
 ---
 
-# 🔢 Pre-Built Measures & DAX
+## Measures & DAX
 
-## Revenue
+### Revenue
 
 **Total Revenue**
 ```dax
 Total Revenue = SUM('Fact Orders'[net_revenue_amount])
 -- net_revenue_amount = total_amount only if Delivered, else 0
--- Kyun: returned/cancelled ka paisa actually earn nahi hua
+-- Returned and cancelled orders do not count — that money was not earned
 -- Result: ₹29.16 Cr
 ```
 
@@ -382,28 +381,28 @@ Latest Month Revenue =
     FILTER(ALL('Fact Orders'[order_date]),
       YEAR('Fact Orders'[order_date]) = YEAR(LatestDate)
       && MONTH('Fact Orders'[order_date]) = MONTH(LatestDate)))
--- Kyun MAXX(ALL): dataset historical — TODAY() nahi chala
--- May 2026: ₹2.02 Cr
+-- MAXX(ALL) is used because the dataset is historical — TODAY() does not work here
+-- Result for May 2026: ₹2.02 Cr
 ```
 
 **Average Order Value**
 ```dax
 Average Order Value = DIVIDE([Total Revenue], [Delivered Order Count], 0)
--- Kyun Delivered denominator: sirf completed orders ka average
+-- Delivered count is used as the denominator — only completed orders count
 -- Result: ₹13,081
 ```
 
-**Revenue 7D Rolling Avg**
+**Revenue 7-Day Rolling Average**
 ```dax
 Revenue_7D_Rolling_Avg =
   CALCULATE(
     AVERAGEX(VALUES('public dim_date'[full_date]), [Total Revenue]),
     DATESINPERIOD('public dim_date'[full_date],
                   LASTDATE('public dim_date'[full_date]), -7, DAY))
--- Kyun rolling: daily spikes smooth karta hai — asli trend dikhti hai
+-- Rolling average smooths out daily spikes — the real trend becomes visible
 ```
 
-**MoM Growth %**
+**Month-over-Month Growth %**
 ```dax
 Previous Month Revenue =
   VAR LatestDate = MAXX(ALL('Fact Orders'), 'Fact Orders'[order_date])
@@ -422,12 +421,12 @@ Revenue Trend = IF([Revenue Growth %] >= 0,
                 & " vs Prev Month"
 ```
 
-## Volume
+### Volume
 
 **Total Orders**
 ```dax
 Total Orders = COUNTROWS('Fact Orders')
--- Kyun COUNTROWS: har row unique_order_key se already unique
+-- Each row is already unique via unique_order_key — COUNTROWS is correct here
 -- Result: 25,000 rows
 ```
 
@@ -444,15 +443,15 @@ Repeat Customer Rate % =
   VAR RepeatCustomers = COUNTROWS(FILTER(VALUES('Fact Orders'[customer_id]),
                           CALCULATE(DISTINCTCOUNT('Fact Orders'[order_id])) > 1))
   RETURN DIVIDE(RepeatCustomers, TotalCustomers, 0)
--- Result: 35% (1,400 out of 4,000 customers)
+-- Result: 35% (1,400 out of 4,000 customers placed more than one order)
 ```
 
-## Operational
+### Operational
 
 **Delivered Order Count**
 ```dax
 Delivered Order Count = SUM('Fact Orders'[is_delivered_order])
--- dbt: CASE WHEN order_status='Delivered' THEN 1 ELSE 0 END
+-- is_delivered_order = 1 if status = Delivered, else 0 (set in dbt)
 -- Result: 22,295
 ```
 
@@ -470,12 +469,12 @@ Cancellation Rate % = DIVIDE([Cancelled Orders], [Total Orders], 0)
 -- Result: 2.9%
 ```
 
-## Campaign
+### Campaign
 
 **Campaign Revenue**
 ```dax
 Campaign Revenue = CALCULATE([Total Revenue], NOT(ISBLANK('Fact Orders'[campaign_id])))
--- Kyun NOT(ISBLANK): sirf campaign-attributed orders
+-- Only includes orders that are attributed to a campaign
 ```
 
 **Gross Profit**
@@ -483,10 +482,10 @@ Campaign Revenue = CALCULATE([Total Revenue], NOT(ISBLANK('Fact Orders'[campaign
 Gross Profit =
   SUMX(FILTER('Fact Orders', 'Fact Orders'[is_delivered_order] = 1),
        'Fact Orders'[total_amount] * RELATED('public dim_products'[profit_margin_pct]) / 100)
--- RELATED = dim_products se margin row-by-row uthao
+-- RELATED pulls the margin from dim_products row by row
 ```
 
-## Inventory
+### Inventory
 
 **Inventory Health %**
 ```dax
@@ -494,7 +493,7 @@ Inventory Health % =
   DIVIDE(CALCULATE(DISTINCTCOUNT('public dim_products'[product_id]),
                    'public dim_products'[stock_level] >= 550),
          DISTINCTCOUNT('public dim_products'[product_id]), 0)
--- Threshold 550 — hamare data ka healthy stock level
+-- Threshold of 550 is the healthy stock level for this dataset
 ```
 
 **Low Stock Products**
@@ -506,49 +505,49 @@ Low Stock Products =
 
 ---
 
-# 🧮 Metric Definitions & Assumptions
+## Metric Definitions & Assumptions
 
 | Metric | Formula | Assumption |
 |--------|---------|------------|
-| Total Revenue | SUM(net_revenue_amount) | Sirf Delivered orders — returned/cancelled = 0 |
+| Total Revenue | SUM(net_revenue_amount) | Delivered orders only — returned/cancelled = 0 |
 | AOV | Total Revenue ÷ Delivered Orders | Delivered only — ₹13,081 overall |
-| Return Rate % | Returned ÷ Total Orders | 7.9% — healthy |
-| Cancellation Rate % | Cancelled ÷ Total Orders | 2.9% — good |
-| Repeat Customer Rate % | Customers >1 order ÷ All customers | 35% — 1,400 of 4,000 |
-| Gross Profit | Delivered revenue × profit_margin_pct | Margin = snapshot, historical may differ |
-| Inventory Health % | Products stock ≥ 550 ÷ Total products | Threshold = 550 |
-| Low Stock | Products stock < 100 | Threshold = 100 |
-| Campaign Revenue | Revenue where campaign_id IS NOT NULL | Some orders organic — no attribution |
-| 7D Rolling Avg | AVERAGEX last 7 days | Smooths weekend/weekday spikes |
+| Return Rate % | Returned ÷ Total Orders | 7.9% — healthy range |
+| Cancellation Rate % | Cancelled ÷ Total Orders | 2.9% — within acceptable range |
+| Repeat Customer Rate % | Customers with >1 order ÷ All customers | 35% — 1,400 of 4,000 |
+| Gross Profit | Delivered revenue × profit_margin_pct | Margin is a snapshot — historical values may differ |
+| Inventory Health % | Products with stock ≥ 550 ÷ Total products | Threshold = 550 |
+| Low Stock | Products with stock < 100 | Threshold = 100 |
+| Campaign Revenue | Revenue where campaign_id IS NOT NULL | Some orders are organic — attribution is incomplete |
+| 7D Rolling Average | AVERAGEX over last 7 days | Smooths weekend / weekday spikes |
 
 ---
 
-# ⚠️ Known Data Limitations & Risks
+## Known Data Limitations & Risks
 
-**1. 25,000 rows but 24,500 unique orders**
-500 rows mein same order_id repeat hua — possible duplicate entries in source. MD5 key deduplicates in fct_orders.
+**1. 25,000 rows but only 24,500 unique orders**  
+500 rows contain a repeated order_id — likely duplicate entries in the source CSV. The MD5 key in fct_orders deduplicates these automatically.
 
-**2. campaign_id Nullable**
-June 2025 mein 592 of 1,198 orders bina campaign ke aaye — 49% organic. Campaign attribution incomplete.
+**2. campaign_id is nullable**  
+In June 2025, 592 out of 1,198 orders had no campaign — 49% organic. Campaign attribution is incomplete and some nulls may represent missing data rather than truly organic traffic.
 
-**3. Incremental Load Risk**
-fct_orders incremental on order_date. Historical corrections won't load without `dbt run --full-refresh`.
+**3. Incremental load risk**  
+fct_orders is incremental on order_date. If an old order's status changes (e.g. Pending → Delivered), it will not update unless `dbt run --full-refresh` is run manually.
 
-**4. Date Format Mix**
-stg_orders handles YYYY-MM-DD and DD/MM/YYYY. Other formats → NULL → filtered out.
+**4. Mixed date formats in source**  
+stg_orders handles both YYYY-MM-DD and DD/MM/YYYY. Any other format results in a NULL date, and those orders are excluded from all time-based analysis.
 
-**5. Profit Margin Snapshot**
-profit_margin_pct from dim_products at ingestion time — not historical. If margins changed, old profit figures inaccurate.
+**5. Profit margin is a point-in-time snapshot**  
+profit_margin_pct is captured from dim_products at ingestion time — not tracked historically. If margins changed during the dataset period, historical profit calculations may be inaccurate.
 
-**6. Stock Level Not Real-Time**
-dim_products.stock_level = last ingestion snapshot only.
+**6. Stock level is not real-time**  
+dim_products.stock_level reflects the last ingestion snapshot only. It is not suitable for live inventory management decisions.
 
-**7. February Structural Weakness**
-Both Feb 2025 and Feb 2026 show same dip — 28-day month + Wedding Bonanza underperformance. Expected every year.
+**7. February is structurally weak every year**  
+Both Feb 2025 and Feb 2026 show the same dip — driven by the 28-day month, post-January demand saturation, and the consistently underperforming Wedding Bonanza campaign. This pattern should be expected and planned for annually.
 
 ---
 
-# 📂 Project Structure
+## Project Structure
 
 ```
 ecommerce_analytics/
@@ -578,7 +577,7 @@ ecommerce_analytics/
 
 ---
 
-# ⚙️ Setup & Run Instructions
+## Setup & Run Instructions
 
 ```bash
 # 1. Start PostgreSQL
@@ -587,40 +586,39 @@ docker-compose up -d
 # 2. Ingest raw data
 python ingestion.py
 
-# 3. Validate dbt
+# 3. Validate dbt connection
 dbt debug
 
 # 4. Run all models
 dbt run
 
-# 5. Full refresh (if historical data changed)
+# 5. Full refresh (if historical data has changed)
 dbt run --full-refresh --select fct_orders
 
-# 6. Run tests
+# 6. Run data quality tests
 dbt test
 
-# 7. Generate docs
+# 7. Generate and serve documentation
 dbt docs generate && dbt docs serve
 ```
 
-Open `BERT_Dashboard.pbix` → Refresh → connect to `127.0.0.1:5434`
+Open `BERT_Dashboard.pbix` → click Refresh → connect to `127.0.0.1:5434`
 
 ---
 
-# 🚀 Tech Stack
+## Tech Stack
 
 | Tool | Purpose |
 |------|---------|
 | PostgreSQL | Data warehouse |
-| Python + Pydantic | Raw ingestion & validation |
-| dbt | ELT transformations, testing, docs |
-| MetricFlow (semantic_layer.yml) | Semantic layer — single source of truth |
-| Power BI | Dashboard & visualization |
-| Docker | Local PostgreSQL |
+| Python + Pydantic | Raw data ingestion and row-level validation |
+| dbt | ELT transformations, testing, incremental models, documentation |
+| MetricFlow (semantic_layer.yml) | Semantic layer — single source of truth for all metric definitions |
+| Power BI | Dashboard and visualization |
+| Docker | Local PostgreSQL environment |
 
 ---
 
-# 👨‍💻 Author
+## Author
 
-**Rudra Sharma**
-Data Analyst · Analytics Engineer · AI/ML Enthusiast
+**Rudra Sharma**  
