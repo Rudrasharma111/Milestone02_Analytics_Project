@@ -60,11 +60,19 @@ models:
         tests:
           - not_null
           - relationships:
-              to: ref('dim_customers')
-              field: customer_id
+              arguments:
+                to: ref('dim_customers')
+                field: customer_id
       - name: product_id
         tests:
           - not_null
           - relationships:
-              to: ref('dim_products')
-              field: product_id
+              arguments:
+                to: ref('dim_products')
+                field: product_id
+      - name: campaign_id
+        tests:
+          - relationships:
+              arguments:
+                to: ref('dim_campaigns')
+                field: campaign_id

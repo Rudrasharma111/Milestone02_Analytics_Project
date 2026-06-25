@@ -11,7 +11,7 @@ WITH source_data AS (
     
     {% if is_incremental() %}
     AND order_date >= coalesce(
-        '{{ var("backfill_start_date", "") }}'::date, 
+        NULLIF('{{ var("backfill_start_date", "") }}', '')::date, 
         (SELECT MAX(order_date) FROM {{ this }})
     )
     {% endif %}
