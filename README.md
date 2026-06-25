@@ -6,9 +6,8 @@ This milestone builds an analytics-ready reporting layer on top of the transform
 
 - Analytics-ready Gold layer tables (Star Schema) derived from dbt models
 - Clearly defined metrics and dimensions with documented grain
-- Semantic layer implementation via MetricFlow YAML
+- Semantic layer implementation
 - Two Power BI dashboards targeting different business personas
-- SQL queries backing each visualization
 - Time-based comparisons — MoM, 7-Day Rolling Average, Revenue Trend
 - Stretch Goals — anomaly detection, forecast, composite metrics
 

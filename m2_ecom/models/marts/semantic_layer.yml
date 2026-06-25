@@ -39,18 +39,18 @@ semantic_models:
 
       - name: total_revenue
         label: "Total Revenue"
-        # dbt  : SUM(net_revenue_amount)
-        # DAX  : Total Revenue = SUM('Fact Orders'[net_revenue_amount])
+        dax: |
+          Total Revenue = SUM('Fact Orders'[net_revenue_amount])
         # net_revenue_amount = total_amount sirf DELIVERED orders ka (baaki 0)
-        # Kyun net_revenue_amount: returned/cancelled ka paisa actual mein nahi aata
+        # Kyun: returned/cancelled ka paisa actual mein nahi aata,
         # isliye sirf DELIVERED orders ka sum kiya — yeh real earned revenue hai
         agg: sum
         expr: net_revenue_amount
 
       - name: total_orders
         label: "Total Orders"
-        # dbt  : COUNT(*) — fct_orders mein har row ek unique order hai
-        # DAX  : Total Orders = COUNTROWS('Fact Orders')
+        dax: |
+          Total Orders = COUNTROWS('Fact Orders')
         # Kyun COUNTROWS: har row already unique_order_key se distinct hai
         # DISTINCTCOUNT ki zaroorat nahi — COUNTROWS faster hai
         agg: count
@@ -58,8 +58,8 @@ semantic_models:
 
       - name: active_customers
         label: "Active Customers"
-        # dbt  : COUNT(DISTINCT customer_id)
-        # DAX  : Active Customers = DISTINCTCOUNT('Fact Orders'[customer_id])
+        dax: |
+          Active Customers = DISTINCTCOUNT('Fact Orders'[customer_id])
         # Kyun DISTINCTCOUNT: ek customer ke kai orders ho sakte hain
         # hum unique customers count karna chahte hain — orders nahi
         agg: count_distinct
@@ -67,8 +67,8 @@ semantic_models:
 
       - name: total_items_sold
         label: "Total Items Sold"
-        # dbt  : SUM(quantity)
-        # DAX  : Total Items Sold = SUM('Fact Orders'[quantity])
+        dax: |
+          Total Items Sold = SUM('Fact Orders'[quantity])
         # Kyun quantity: ek order mein 3 products bhi ho sakte hain
         # orders count se sirf transactions pata chalte — units nahi
         agg: sum
@@ -76,8 +76,8 @@ semantic_models:
 
       - name: delivered_order_count
         label: "Delivered Order Count"
-        # dbt  : SUM(is_delivered_order)  — is_delivered_order = 1 agar DELIVERED, warna 0
-        # DAX  : Delivered Order Count = SUM('Fact Orders'[is_delivered_order])
+        dax: |
+          Delivered Order Count = SUM('Fact Orders'[is_delivered_order])
         # Kyun flag ka SUM: 1+1+0+1 = 3 delivered orders — simple additive count
         # dbt mein already flag banaya: CASE WHEN order_status='DELIVERED' THEN 1 ELSE 0 END
         agg: sum
@@ -85,8 +85,8 @@ semantic_models:
 
       - name: total_returned_orders
         label: "Total Returned Orders"
-        # dbt  : SUM(is_returned_order)  — is_returned_order = 1 agar RETURNED, warna 0
-        # DAX  : Total Returned Orders = SUM('Fact Orders'[is_returned_order])
+        dax: |
+          Total Returned Orders = SUM('Fact Orders'[is_returned_order])
         # Kyun same flag pattern: consistent approach — deliver aur return dono ek tarah count
         agg: sum
         expr: is_returned_order
@@ -94,25 +94,15 @@ semantic_models:
 
 metrics:
 
+
   # ── REVENUE ────────────────────────────────────────────────
-
-  - name: total_revenue
-    label: "Total Revenue"
-    # DAX: Total Revenue = SUM('Fact Orders'[net_revenue_amount])
-    # Kyun net_revenue_amount ka SUM:
-    # net_revenue_amount = total_amount ONLY if DELIVERED else 0 (dbt mein banaya)
-    # Returned/cancelled ka paisa count nahi hona chahiye — woh earn nahi hua
-    type: simple
-    type_params:
-      measure: total_revenue
-
   - name: average_order_value
     label: "Average Order Value"
-    # DAX: Average Order Value = DIVIDE([Total Revenue], [Delivered Order Count], 0)
+    dax: |
+      Average Order Value = DIVIDE([Total Revenue], [Delivered Order Count], 0)
     # Kyun Delivered Order Count denominator mein:
     # Sirf jo orders actually deliver hue unka average value chahiye
     # Cancelled/returned orders include karna misleading hoga — unse revenue nahi aaya
-    # DIVIDE(..., 0) = agar denominator 0 ho toh error ki jagah 0 return karo
     type: derived
     type_params:
       expr: "total_revenue / NULLIF(delivered_order_count, 0)"
@@ -120,81 +110,11 @@ metrics:
         - name: total_revenue
         - name: delivered_order_count
 
-  - name: latest_month_revenue
-    label: "Latest Month Revenue"
-    # DAX:
-    # Latest Month Revenue =
-    #   VAR LatestDate = MAXX(ALL('Fact Orders'), 'Fact Orders'[order_date])
-    #   RETURN CALCULATE([Total Revenue],
-    #     FILTER(ALL('Fact Orders'[order_date]),
-    #       YEAR(order_date) = YEAR(LatestDate) && MONTH(order_date) = MONTH(LatestDate)))
-    # Kyun MAXX(ALL(...)): data mein sabse latest date dhundho — TODAY() use nahi kiya
-    # kyunki dataset historical hai, real-time nahi. Latest available mahine ka revenue chahiye.
-    type: derived
-    type_params:
-      expr: "total_revenue"
-      metrics:
-        - name: total_revenue
-          offset_window: 0 month
-
-  - name: previous_month_revenue
-    label: "Previous Month Revenue"
-    # DAX:
-    # Previous Month Revenue =
-    #   VAR LatestDate = MAXX(ALL('Fact Orders'), 'Fact Orders'[order_date])
-    #   VAR PrevDate   = EOMONTH(LatestDate, -1)
-    #   RETURN CALCULATE([Total Revenue],
-    #     FILTER(ALL(...), YEAR=YEAR(PrevDate) && MONTH=MONTH(PrevDate)))
-    # Kyun EOMONTH(LatestDate, -1): latest mahine se ek mahine peeche jaao
-    # EOMONTH = End Of Month — last day of that month milta hai, phir uska YEAR/MONTH filter lagao
-    type: derived
-    type_params:
-      expr: "total_revenue"
-      metrics:
-        - name: total_revenue
-          offset_window: 1 month
-
-  - name: revenue_growth_pct
-    label: "Revenue Growth %"
-    # DAX:
-    # Revenue Growth % = DIVIDE([Latest Month Revenue] - [Previous Month Revenue],
-    #                            [Previous Month Revenue])
-    # Revenue Trend = IF([Revenue Growth %] >= 0,
-    #                    "▲ " & FORMAT(...,"0.0%"),
-    #                    "▼ " & FORMAT(ABS(...),"0.0%")) & " vs Prev Month"
-    # Kyun yeh formula: (naya - purana) / purana = kitna percent change aaya
-    # Revenue Trend measure upar arrow (▲/▼) lagata hai visual ke liye
-    type: derived
-    type_params:
-      expr: "(total_revenue - previous_month_revenue) / NULLIF(previous_month_revenue, 0)"
-      metrics:
-        - name: total_revenue
-        - name: previous_month_revenue
-
-  - name: revenue_7d_rolling_avg
-    label: "Revenue 7D Rolling Avg"
-    # DAX:
-    # Revenue_7D_Rolling_Avg =
-    #   CALCULATE(
-    #     AVERAGEX(VALUES('public dim_date'[full_date]), [Total Revenue]),
-    #     DATESINPERIOD('public dim_date'[full_date], LASTDATE(...), -7, DAY))
-    # Kyun rolling average: daily revenue mein weekend/weekday ka fark hota hai
-    # 7 din ka average lene se yeh ups-downs smooth ho jaate hain
-    # AVERAGEX = har din ka revenue calculate karo, phir 7 ka average nikalo
-    type: derived
-    type_params:
-      expr: "total_revenue / 7"
-      metrics:
-        - name: total_revenue
-          offset_window: 7 days
-        - name: total_revenue
-
   # ── CAMPAIGN ───────────────────────────────────────────────
-
   - name: campaign_revenue
     label: "Campaign Revenue"
-    # DAX:
-    # Campaign Revenue = CALCULATE([Total Revenue], NOT(ISBLANK('Fact Orders'[campaign_id])))
+    dax: |
+      Campaign Revenue = CALCULATE([Total Revenue], NOT(ISBLANK('Fact Orders'[campaign_id])))
     # Kyun NOT(ISBLANK): sirf woh orders count karo jinke paas campaign_id hai
     # Kuch orders bina campaign ke bhi aate hain (direct/organic) — unhe exclude kiya
     type: derived
@@ -206,10 +126,10 @@ metrics:
 
   - name: campaign_revenue_contribution_pct
     label: "Campaign Revenue Contribution %"
-    # DAX: Campaign Revenue Contribution % = DIVIDE([Campaign Revenue], [Total Revenue], 0)
+    dax: |
+      Campaign Revenue Contribution % = DIVIDE([Campaign Revenue], [Total Revenue], 0)
     # Kyun Total Revenue denominator mein (bina ALL):
     # Yahan ALL() nahi lagaya — sirf selected campaign ka revenue / total revenue
-    # Isse har campaign ka share directly pata chalta hai overall mein
     type: derived
     type_params:
       expr: "campaign_revenue / NULLIF(total_revenue, 0)"
@@ -217,26 +137,11 @@ metrics:
         - name: campaign_revenue
         - name: total_revenue
 
-  - name: gross_profit
-    label: "Gross Profit"
-    # DAX:
-    # Gross Profit = SUMX(
-    #   FILTER('Fact Orders', is_delivered_order = 1),
-    #   total_amount * RELATED('public dim_products'[profit_margin_pct]) / 100)
-    # Kyun SUMX + FILTER: sirf delivered orders ka profit calculate karo
-    # RELATED = dim_products se us product ki margin % uthao
-    # Har order ka profit = revenue × margin% — phir sab add karo
-    type: derived
-    type_params:
-      expr: "total_revenue * 0.01"
-      metrics:
-        - name: total_revenue
-
   - name: profit_margin_pct
     label: "Profit Margin %"
-    # DAX: Profit Margin % = DIVIDE([Gross Profit], [Total Revenue], 0)
+    dax: |
+      Profit Margin % = DIVIDE([Gross Profit], [Total Revenue], 0)
     # Kyun Total Revenue denominator: profit ko revenue se divide karo
-    # Isse pata chalta hai — har 100 rupaye revenue mein kitna actual profit
     type: derived
     type_params:
       expr: "gross_profit / NULLIF(total_revenue, 0)"
@@ -244,41 +149,12 @@ metrics:
         - name: gross_profit
         - name: total_revenue
 
-  # ── VOLUME ─────────────────────────────────────────────────
-
-  - name: total_orders
-    label: "Total Orders"
-    # DAX: Total Orders = COUNTROWS('Fact Orders')
-    # Kyun COUNTROWS: fct_orders mein har row ek unique order hai (unique_order_key se guaranteed)
-    # DISTINCTCOUNT ki zaroorat nahi — seedha rows gino, fast aur simple
-    type: simple
-    type_params:
-      measure: total_orders
-
-  - name: active_customers
-    label: "Active Customers"
-    # DAX: Active Customers = DISTINCTCOUNT('Fact Orders'[customer_id])
-    # Kyun DISTINCTCOUNT: ek customer ke multiple orders ho sakte hain
-    # Hume customers count karne hain — orders nahi
-    type: simple
-    type_params:
-      measure: active_customers
-
-  - name: total_items_sold
-    label: "Total Items Sold"
-    # DAX: Total Items Sold = SUM('Fact Orders'[quantity])
-    # Kyun quantity ka SUM: ek order mein kai items ho sakte hain
-    # COUNTROWS se sirf orders milte — actual units nahi
-    type: simple
-    type_params:
-      measure: total_items_sold
-
+  
   - name: avg_daily_orders
     label: "Avg Daily Orders"
-    # DAX:
-    # Avg Daily Orders = DIVIDE([Total Orders], DISTINCTCOUNT('public dim_date'[full_date]), 0)
+    dax: |
+      Avg Daily Orders = DIVIDE([Total Orders], DISTINCTCOUNT('public dim_date'[full_date]), 0)
     # Kyun dim_date se DISTINCTCOUNT: active days count karo (sirf jinke orders hain wale nahi)
-    # Total orders / total days = roz average kitne orders aate hain
     type: derived
     type_params:
       expr: "total_orders / NULLIF(total_orders, 0)"
@@ -286,30 +162,24 @@ metrics:
         - name: total_orders
 
   # ── OPERATIONAL ────────────────────────────────────────────
-
   - name: delivered_order_count
     label: "Delivered Order Count"
-    # DAX: Delivered Order Count = SUM('Fact Orders'[is_delivered_order])
-    # dbt mein: is_delivered_order = CASE WHEN order_status='DELIVERED' THEN 1 ELSE 0 END
-    # Kyun SUM of flag: 1+0+1+1 = 3 delivered — simple aur fast
-    # CALCULATE wala approach bhi kaam karta par flag SUM more efficient hai
+    # DAX: same as measure "delivered_order_count" (upar semantic_models mein dekho)
     type: simple
     type_params:
       measure: delivered_order_count
 
   - name: total_returned_orders
     label: "Total Returned Orders"
-    # DAX: Total Returned Orders = SUM('Fact Orders'[is_returned_order])
-    # dbt mein: is_returned_order = CASE WHEN order_status='RETURNED' THEN 1 ELSE 0 END
-    # Kyun same pattern as delivered: consistent approach — dono flags ek tarah kaam karte hain
+    # DAX: same as measure "total_returned_orders" (upar semantic_models mein dekho)
     type: simple
     type_params:
       measure: total_returned_orders
 
   - name: cancelled_orders
     label: "Cancelled Orders"
-    # DAX: Cancelled Orders = CALCULATE([Total Orders], 'Fact Orders'[order_status] = "Cancelled")
-    # Kyun CALCULATE with filter: sirf Cancelled status wale orders gino
+    dax: |
+      Cancelled Orders = CALCULATE([Total Orders], 'Fact Orders'[order_status] = "Cancelled")
     # Note: status value "Cancelled" hai — "CANCELLED" nahi (case sensitive in DAX)
     type: derived
     type_params:
@@ -320,9 +190,8 @@ metrics:
 
   - name: return_rate_pct
     label: "Return Rate %"
-    # DAX: Return Rate % = DIVIDE([Total Returned Orders], [Total Orders], 0)
-    # Kyun Total Orders denominator: sab orders mein se kitne wapas aaye
-    # DIVIDE(..., 0) = agar koi order na ho toh 0 return karo, error nahi
+    dax: |
+      Return Rate % = DIVIDE([Total Returned Orders], [Total Orders], 0)
     type: derived
     type_params:
       expr: "total_returned_orders / NULLIF(total_orders, 0)"
@@ -332,9 +201,9 @@ metrics:
 
   - name: cancellation_rate_pct
     label: "Cancellation Rate %"
-    # DAX: Cancellation Rate % = DIVIDE([Cancelled Orders], [Total Orders], 0)
+    dax: |
+      Cancellation Rate % = DIVIDE([Cancelled Orders], [Total Orders], 0)
     # Kyun: cancelled orders / total orders = kitne percent orders beech mein ruke
-    # High cancellation = payment issue ya delivery area problem
     type: derived
     type_params:
       expr: "cancelled_orders / NULLIF(total_orders, 0)"
@@ -342,14 +211,115 @@ metrics:
         - name: cancelled_orders
         - name: total_orders
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  # ── REVENUE (time-based) ────────────────────────────────────
+  - name: latest_month_revenue
+    label: "Latest Month Revenue"
+    dax: |
+      Latest Month Revenue =
+        VAR LatestDate = MAXX(ALL('Fact Orders'), 'Fact Orders'[order_date])
+        RETURN CALCULATE([Total Revenue],
+          FILTER(ALL('Fact Orders'[order_date]),
+            YEAR(order_date) = YEAR(LatestDate) && MONTH(order_date) = MONTH(LatestDate)))
+    # Kyun MAXX(ALL(...)): data mein sabse latest date dhundho — TODAY() use nahi kiya
+    # kyunki dataset historical hai, real-time nahi. Latest available mahine ka revenue chahiye.
+    type: derived
+    type_params:
+      expr: "total_revenue"
+      metrics:
+        - name: total_revenue
+          offset_window: 0 month
+
+  - name: previous_month_revenue
+    label: "Previous Month Revenue"
+    dax: |
+      Previous Month Revenue =
+        VAR LatestDate = MAXX(ALL('Fact Orders'), 'Fact Orders'[order_date])
+        VAR PrevDate   = EOMONTH(LatestDate, -1)
+        RETURN CALCULATE([Total Revenue],
+          FILTER(ALL(...), YEAR=YEAR(PrevDate) && MONTH=MONTH(PrevDate)))
+    # Kyun EOMONTH(LatestDate, -1): latest mahine se ek mahine peeche jaao
+    type: derived
+    type_params:
+      expr: "total_revenue"
+      metrics:
+        - name: total_revenue
+          offset_window: 1 month
+
+  - name: revenue_growth_pct
+    label: "Revenue Growth %"
+    dax: |
+      Revenue Growth % = DIVIDE([Latest Month Revenue] - [Previous Month Revenue],
+                                 [Previous Month Revenue])
+      Revenue Trend = IF([Revenue Growth %] >= 0,
+                         "▲ " & FORMAT(...,"0.0%"),
+                         "▼ " & FORMAT(ABS(...),"0.0%")) & " vs Prev Month"
+    # Kyun yeh formula: (naya - purana) / purana = kitna percent change aaya
+    # Revenue Trend measure upar arrow (▲/▼) lagata hai visual ke liye
+    type: derived
+    type_params:
+      expr: "(total_revenue - previous_month_revenue) / NULLIF(previous_month_revenue, 0)"
+      metrics:
+        - name: total_revenue
+        - name: previous_month_revenue
+
+  - name: revenue_7d_rolling_avg
+    label: "Revenue 7D Rolling Avg"
+    dax: |
+      Revenue_7D_Rolling_Avg =
+        CALCULATE(
+          AVERAGEX(VALUES('public dim_date'[full_date]), [Total Revenue]),
+          DATESINPERIOD('public dim_date'[full_date], LASTDATE(...), -7, DAY))
+    # Kyun rolling average: daily revenue mein weekend/weekday ka fark hota hai
+    # 7 din ka average lene se yeh ups-downs smooth ho jaate hain
+    # AVERAGEX = har din ka revenue calculate karo, phir 7 ka average nikalo
+    type: derived
+    type_params:
+      expr: "total_revenue / 7"
+      metrics:
+        - name: total_revenue
+          offset_window: 7 days
+        - name: total_revenue
+
+  # ── CAMPAIGN / PROFIT ────────────────────────────────────────
+  - name: gross_profit
+    label: "Gross Profit"
+    dax: |
+      Gross Profit = SUMX(
+        FILTER('Fact Orders', is_delivered_order = 1),
+        total_amount * RELATED('public dim_products'[profit_margin_pct]) / 100)
+    # Kyun SUMX + FILTER: sirf delivered orders ka profit calculate karo
+    # RELATED = dim_products se us product ki margin % uthao
+    # Har order ka profit = revenue × margin% — phir sab add karo
+    type: derived
+    type_params:
+      expr: "total_revenue * 0.01"
+      metrics:
+        - name: total_revenue
+
+  # ── CUSTOMER BEHAVIOUR ───────────────────────────────────────
   - name: customer_return_rate_pct
     label: "Customer Return Rate %"
-    # DAX:
-    # Customer Return Rate % =
-    #   VAR ReturnedCustomers = CALCULATE(DISTINCTCOUNT(customer_id),
-    #                                     order_status = "Returned")
-    #   VAR TotalCustomers    = DISTINCTCOUNT(customer_id)
-    #   RETURN DIVIDE(ReturnedCustomers, TotalCustomers, 0)
+    dax: |
+      Customer Return Rate % =
+        VAR ReturnedCustomers = CALCULATE(DISTINCTCOUNT(customer_id),
+                                          order_status = "Returned")
+        VAR TotalCustomers    = DISTINCTCOUNT(customer_id)
+        RETURN DIVIDE(ReturnedCustomers, TotalCustomers, 0)
     # Kyun alag measure Return Rate % se:
     # Return Rate % = orders based (kitne orders return hue)
     # Customer Return Rate % = customer based (kitne unique customers ne return kiya)
@@ -363,12 +333,12 @@ metrics:
 
   - name: repeat_customer_rate_pct
     label: "Repeat Customer Rate %"
-    # DAX:
-    # Repeat Customer Rate % =
-    #   VAR TotalCustomers  = DISTINCTCOUNT(customer_id)
-    #   VAR RepeatCustomers = COUNTROWS(FILTER(VALUES(customer_id),
-    #                           CALCULATE(DISTINCTCOUNT(order_id)) > 1))
-    #   RETURN DIVIDE(RepeatCustomers, TotalCustomers, 0)
+    dax: |
+      Repeat Customer Rate % =
+        VAR TotalCustomers  = DISTINCTCOUNT(customer_id)
+        VAR RepeatCustomers = COUNTROWS(FILTER(VALUES(customer_id),
+                                CALCULATE(DISTINCTCOUNT(order_id)) > 1))
+        RETURN DIVIDE(RepeatCustomers, TotalCustomers, 0)
     # Kyun FILTER + VALUES pattern:
     # VALUES = unique customers ki list banao
     # FILTER = un mein se woh dhundo jinke >1 distinct orders hain
@@ -382,14 +352,13 @@ metrics:
         - name: active_customers
 
   # ── INVENTORY ──────────────────────────────────────────────
-
   - name: inventory_health_pct
     label: "Inventory Health %"
-    # DAX:
-    # Inventory Health % =
-    #   DIVIDE(
-    #     CALCULATE(DISTINCTCOUNT(product_id), stock_level >= 550),
-    #     DISTINCTCOUNT(product_id), 0)
+    dax: |
+      Inventory Health % =
+        DIVIDE(
+          CALCULATE(DISTINCTCOUNT(product_id), stock_level >= 550),
+          DISTINCTCOUNT(product_id), 0)
     # Kyun threshold 550: hamare data mein average stock level high hai
     # 550+ = healthy stock, neeche = reorder karna chahiye
     # Note: Yeh threshold business ne decide kiya — adjust ho sakta hai
@@ -403,10 +372,11 @@ metrics:
 
   - name: low_stock_products
     label: "Low Stock Products"
-    # DAX:
-    # Low Stock Products =
-    #   CALCULATE(DISTINCTCOUNT(product_id),
-    #     FILTER(dim_products, stock_level < 100))
+    dax: 
+      Low Stock Products =
+        CALCULATE(DISTINCTCOUNT(product_id),
+          FILTER(dim_products, stock_level < 100))
+
     # Kyun < 100 threshold: 100 se kam stock = danger zone, jaldi khatam hoga
     # Source: dim_products table
     # Business use: isse pata chalta hai kaunse products ki restocking abhi karni hai
